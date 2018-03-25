@@ -1,0 +1,8 @@
+Debug/
+Release/
+.xdchelp
+.config/
+.launches/
+*.ccxml
+
+targetConfigs/
