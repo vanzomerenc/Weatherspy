@@ -59,7 +59,7 @@ struct _uart_interface
     int16_t _tx_pin;                           // bitmask for transmit pin
 };
 
-struct _uart_interface _uart_interface[4] = {
+static struct _uart_interface _uart_interface[4] = {
     (struct _uart_interface) { {NULL, NULL}, EUSCI_A0, INT_EUSCIA0, &_eusci_a0_uart_interrupt_handler, PA, 1 << 3,       1 << 2 },
     (struct _uart_interface) { {NULL, NULL}, EUSCI_A1, INT_EUSCIA1, &_eusci_a1_uart_interrupt_handler, PA, 1 << (3 + 8), 1 << (2 + 8) },
     (struct _uart_interface) { {NULL, NULL}, EUSCI_A2, INT_EUSCIA2, &_eusci_a2_uart_interrupt_handler, PB, 1 << 3,       1 << 2 },
@@ -165,7 +165,7 @@ static struct _uart_baud_register_config _calculate_settings_for_baud_rate(uint3
 
 
 
-void _uart_pins_init(struct _uart_interface *iface)
+static void _uart_pins_init(struct _uart_interface *iface)
 {
     DIO_PORT_Interruptable_Type *port = iface->_port;
     uint16_t tx_pin = iface->_tx_pin;
