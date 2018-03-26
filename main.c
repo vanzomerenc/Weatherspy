@@ -57,6 +57,7 @@
 /* Standard Includes */
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #include <drv/uart.h>
 #include <drv/timing.h>
@@ -68,28 +69,26 @@ int main(void)
 
     init_clocks();
 
-    struct uart_config cfg;
-    cfg.baud_rate = 115200;
-    cfg.flags =
-            UART_FLAG_PARITY_NONE
-            | UART_FLAG_LSB_FIRST
-            | UART_FLAG_8BIT_CHAR
-            | UART_FLAG_ONE_STOP_BIT;
-    cfg.id = 0;
+    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
 
-    UartInterface a = uart_init(cfg);
-
-    struct uart_receive_callback receive;
-    receive.callback = &uart_send_byte;
-    receive.context = a;
-
-    uart_set_receive_handler(a, receive);
+    int err = uart_use_stdio_support();
 
     Interrupt_enableMaster();
 
-    uart_enable(a);
+    FILE *f = fopen("uart:dev0@115200", "w+");
+    setvbuf(f, NULL, _IONBF, BUFSIZ);
+    err = fputs("Check!\r\n", f);
+    err = fputs("Test\n", f);
 
-    uart_send_string(a, "Test!");
+    int c = EOF;
+    fseek(f, 0, SEEK_CUR);
+    while(c == EOF) {c = fgetc(f);}
+    fseek(f, 0, SEEK_CUR);
+    fputc(c, f);
+    fclose(f);
+
+    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
 
     while(1)
     {
