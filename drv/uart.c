@@ -252,7 +252,7 @@ void uart_enable(UartInterface iface)
     iface->_module->IE = UCRXIE; // enable interrupt only for receive
 }
 
-extern void delay_spin_ms(uint32_t n); // needed for a hack in uart_disable
+extern void delay_ms(uint32_t n); // needed for a hack in uart_disable
 void uart_disable(UartInterface iface)
 {
     if(iface->_module->CTLW0 & UCSWRST) return; // already disabled
@@ -283,7 +283,7 @@ void uart_disable(UartInterface iface)
     {
     }
 
-    delay_spin_ms(10);
+    delay_ms(10);
 
     iface->_module->CTLW0 |= UCSWRST;
 }

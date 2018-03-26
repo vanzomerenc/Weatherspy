@@ -31,5 +31,5 @@ ClockFrequency get_frequency(ClockSignalID clock);
 // Delays for n milliseconds by entering a tight loop.
 void delay_spin_ms(uint32_t n);
 
-// TODO: use something other than spinning for most delays.
-inline void delay_ms(uint32_t n) {return delay_spin_ms(n);}
+// Delays for n milliseconds.
+void delay_ms(uint32_t n);

@@ -103,6 +103,11 @@ void delay_spin_ms(uint32_t n)
 	}
 }
 
+// TODO: use something other than spinning for most delays.
+void delay_ms(uint32_t n)
+{
+    return delay_spin_ms(n);
+}
 
 
 
