@@ -273,7 +273,7 @@ void uart_disable(UartInterface iface)
     // or
     //  b) Transmit an extra byte, wait for that to leave the transmit register,
     //     then disable the module before that byte gets anywhere. This causes
-    //     an unwanted byte to be sent at the start of the next transmission.
+    //     an unwanted byte to be sent when the module is re-enabled.
     // or
     //  c) Follow TI's recommendation and use interrupt handlers for everything.
     //     This is the proper solution, given the time to implement it.

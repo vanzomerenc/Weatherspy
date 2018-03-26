@@ -60,6 +60,7 @@
 #include <stdio.h>
 
 #include <drv/uart.h>
+#include <drv/uart_stdio_support.h>
 #include <drv/timing.h>
 
 int main(void)
@@ -76,17 +77,17 @@ int main(void)
 
     Interrupt_enableMaster();
 
-    FILE *f = fopen("uart:dev0@115200", "w+");
-    setvbuf(f, NULL, _IONBF, BUFSIZ);
-    err = fputs("Check!\r\n", f);
-    err = fputs("Test\n", f);
+    struct uart_config config = {.id = 0, .baud_rate = 115200, .flags = 0};
+    struct uart_channel channel = uart_open(config);
+
+    err = fputs("Check!\r\n", channel.tx);
+    err = fputs("Test\n", channel.tx);
 
     int c = EOF;
-    fseek(f, 0, SEEK_CUR);
-    while(c == EOF) {c = fgetc(f);}
-    fseek(f, 0, SEEK_CUR);
-    fputc(c, f);
-    fclose(f);
+    while(c == EOF) {c = fgetc(channel.rx);}
+    fputc(c, channel.tx);
+    fclose(channel.rx);
+    fclose(channel.tx);
 
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
 
