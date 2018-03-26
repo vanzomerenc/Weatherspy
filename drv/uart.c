@@ -72,8 +72,9 @@ void uart_send_byte(UartInterface iface, char msg)
 {
     while(!(iface->_module->IFG & UCTXIFG))
     {
-        // wait for last transmit to finish
+        // wait until the tx register is ready
     }
+
     iface->_module->TXBUF = msg;
 }
 
@@ -251,8 +252,39 @@ void uart_enable(UartInterface iface)
     iface->_module->IE = UCRXIE; // enable interrupt only for receive
 }
 
+extern void delay_spin_ms(uint32_t n); // needed for a hack in uart_disable
 void uart_disable(UartInterface iface)
 {
+    if(iface->_module->CTLW0 & UCSWRST) return; // already disabled
+
+    // TODO: This code is probably wrong, but it works now.
+    // Make sure everything has been transmitted.
+    // UCTXIFG does not indicate that the byte has been transmitted,
+    // only that the transmit register is ready. We lose a byte because of this.
+    // There's supposed to be an interrupt flag UCTXCPTIFG to indicate that
+    // transmission is finished.
+    // However, I can't seem to get it to work, and we end up losing 2 bytes
+    // instead of 1.
+    //
+    // So far, the only things which have seemed to work have been
+    //  a) Wait blindly for at least the time it takes to transmit a byte.
+    //     This wait has to be AFTER checking the interrupt flag, for reasons
+    //     I don't understand.
+    // or
+    //  b) Transmit an extra byte, wait for that to leave the transmit register,
+    //     then disable the module before that byte gets anywhere. This causes
+    //     an unwanted byte to be sent at the start of the next transmission.
+    // or
+    //  c) Follow TI's recommendation and use interrupt handlers for everything.
+    //     This is the proper solution, given the time to implement it.
+    //     TI seems to support interrupt handlers very well.
+
+    while(!(iface->_module->IFG & UCTXIFG))
+    {
+    }
+
+    delay_spin_ms(10);
+
     iface->_module->CTLW0 |= UCSWRST;
 }
 
