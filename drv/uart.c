@@ -206,8 +206,6 @@ UartInterface uart_init(struct uart_config config)
     struct _uart_baud_register_config baud_settings
         = _calculate_settings_for_baud_rate(clock_rate, config.baud_rate);
 
-    _uart_pins_init(iface);
-
     EUSCI_A_Type *mod = iface->_module;
 
     // keep disabled, but reset the rest of the control register
@@ -235,6 +233,9 @@ UartInterface uart_init(struct uart_config config)
     iface->_rx_callback.callback = NULL;
     iface->_rx_callback.context = NULL;
 
+
+
+    _uart_pins_init(iface);
     return iface;
 }
 
