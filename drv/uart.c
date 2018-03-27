@@ -3,6 +3,15 @@
  *
  *  Created on: Mar 24, 2018
  *      Author: Chris van Zomeren
+ *
+ * A simple UART driver with blocking transmission and interrupt-driven reception.
+ * Some improvements could be made, such as (in no particular order):
+ *  - making the transmission also interrupt-driven, to avoid blocking application code
+ *  - verifying baud settings when initializing a module
+ *  - implementing some of the advanced features supported by the hardware UART module
+ *  - implementing DMA send/receive
+ *  - detecting changes to SMCLK and adjusting baud settings appropriately
+ *  - providing some commonly-used rx callbacks (e.g. echo/forwarding, or buffered receive)
  */
 
 #include <msp432p401r.h>
