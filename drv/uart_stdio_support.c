@@ -53,7 +53,7 @@ void _uart_buffer_fill_callback(struct _uart_channel *context, char data)
 }
 
 // Gets the channel which owns fd, or NULL if no channel owns fd.
-static struct _uart_channel *_uart_get_fd_owner(int fd)
+static struct _uart_channel *_uart_get_fd_channel(int fd)
 {
     for(int i = 0; i < UART_NUM_CHANNELS; i++)
     {
@@ -114,7 +114,7 @@ static int _uart_open_one_way(char const *path, unsigned flags, int llv_fd)
 // called by close(), fclose(), &c.
 static int _uart_close_one_way(int dev_fd)
 {
-    struct _uart_channel *dev = _uart_get_fd_owner(dev_fd);
+    struct _uart_channel *dev = _uart_get_fd_channel(dev_fd);
     if(dev == NULL) { return -1; }
 
     if(dev_fd == dev->read_fd)
@@ -139,7 +139,7 @@ static int _uart_close_one_way(int dev_fd)
 // Called by read(), fgetc(), fgets(), &c.
 static int _uart_read(int dev_fd, char *buf, unsigned count)
 {
-    struct _uart_channel *dev = _uart_get_fd_owner(dev_fd);
+    struct _uart_channel *dev = _uart_get_fd_channel(dev_fd);
     if(dev == NULL) { return -1; }
     if(dev_fd != dev->read_fd) { return -1; }
 
@@ -161,7 +161,7 @@ static int _uart_read(int dev_fd, char *buf, unsigned count)
 // Called by write(), fputc(), fputs(), &c.
 static int _uart_write(int dev_fd, char const *buf, unsigned count)
 {
-    struct _uart_channel *dev = _uart_get_fd_owner(dev_fd);
+    struct _uart_channel *dev = _uart_get_fd_channel(dev_fd);
     if(dev == NULL) { return -1; }
     if(dev_fd != dev->write_fd) { return -1; }
 
