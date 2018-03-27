@@ -2,7 +2,9 @@
  * uart_io_support.c
  *
  *  Created on: Mar 25, 2018
- *      Author: Chris
+ *      Author: Chris van Zomeren
+ *
+ * TODO: set errno on errors
  */
 
 #include <stdbool.h>
@@ -24,31 +26,35 @@ struct _uart_channel
     UartInterface interface;               // UART interface associated with the channel
     uint16_t rx_buf_trailing;              // -,
     uint16_t rx_buf_leading;               //  |- ring buffer holding received data
+    bool rx_data_was_lost;                 //  |
     char rx_buf[UART_RECEIVE_BUFFER_SIZE]; // -'
 };
 
 static struct _uart_channel _uart_channel[UART_NUM_CHANNELS] =
 {
- (struct _uart_channel) {-1, -1, NULL, 0, 0},
- (struct _uart_channel) {-1, -1, NULL, 0, 0},
- (struct _uart_channel) {-1, -1, NULL, 0, 0},
- (struct _uart_channel) {-1, -1, NULL, 0, 0}
+ (struct _uart_channel) {-1, -1, NULL, 0, 0, 0},
+ (struct _uart_channel) {-1, -1, NULL, 0, 0, 0},
+ (struct _uart_channel) {-1, -1, NULL, 0, 0, 0},
+ (struct _uart_channel) {-1, -1, NULL, 0, 0, 0}
 };
 
 
 
 // This is set as the function called by the UART interface when a byte is received.
 // Received data is placed in the ring buffer for the receiving channel.
+// If the leading edge of the buffer reaches the trailing edge, the program has
+// fallen too far behind and must discard data to catch up.
+// Once any data is lost, the entire receive stream is considered compromised,
+// including data which has already been received and is sitting in the receive
+// buffer. The only way to recover from data loss is to seek to the end of the
+// receive stream, or to close and reopen the stream.
 void _uart_buffer_fill_callback(struct _uart_channel *context, char data)
 {
-    // TODO: is it better to miss reads, or writes? currently we miss writes
-
-    // We want to keep a separation of at least 1 between the trailing
-    // and the next leading edge of the buffer.
-    if((context->rx_buf_leading + 1) % UART_RECEIVE_BUFFER_SIZE != context->rx_buf_trailing)
+    context->rx_buf[context->rx_buf_leading] = data;
+    context->rx_buf_leading = (context->rx_buf_leading + 1) % UART_RECEIVE_BUFFER_SIZE;
+    if(context->rx_buf_leading == context->rx_buf_trailing)
     {
-        context->rx_buf[context->rx_buf_leading] = data;
-        context->rx_buf_leading = (context->rx_buf_leading + 1) % UART_RECEIVE_BUFFER_SIZE;
+        context->rx_data_was_lost = true;
     }
 }
 
@@ -153,6 +159,22 @@ static int _uart_read(int dev_fd, char *buf, unsigned count)
         num_read++;
     }
 
+    // This check has to happen _after_ we've already read the data,
+    // because the receive interrupt might have overwritten it while
+    // we were reading.
+    // We check once at the end, instead of on each byte, for a few reasons:
+    //   1) We want a read to be as fast as possible while there's data to read.
+    //   2) Data loss means we either stopped caring about the stream for a while,
+    //      or we have already severely failed to keep up with it.
+    //   3) The data is coming from an external source which is already not
+    //      perfectly predictable. It makes little difference whether we lose data
+    //      from time t or time t - x, for sufficiently small x.
+    // See _uart_buffer_fill_callback.
+    if(dev->rx_data_was_lost)
+    {
+        return -1;
+    }
+
     return num_read;
 }
 
@@ -169,12 +191,29 @@ static int _uart_write(int dev_fd, char const *buf, unsigned count)
     return count;
 }
 
-// Pretends to seek, to make the standard library happy.
-// This is a stream though, so seeking does not make much sense.
+// Seeks to the given offset in dev_fd relative to origin.
+// Seeking to the end of the stream (0, SEEK_END) will always
+// succeed, and will recover from data loss if used on a receiving
+// stream. Seeking to any other point will always fail.
 // Called by lseek(), fseek(), &c.
 static off_t _uart_lseek(int dev_fd, off_t offset, int origin)
 {
-    return 0;
+    struct _uart_channel *dev = _uart_get_fd_channel(dev_fd);
+
+    if(offset == 0 && origin == SEEK_END)
+    {
+        if(dev_fd == dev->read_fd)
+        {
+            dev->rx_buf_trailing = dev->rx_buf_leading;
+            dev->rx_data_was_lost = false;
+        }
+
+        return 0;
+    }
+    else
+    {
+        return -1;
+    }
 }
 
 // We have a fixed set of devices, so unlinking does not make sense.
