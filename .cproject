@@ -73,7 +73,7 @@
 									<listOptionValue builtIn="false" value="libc.a"/>
 								</option>
 								<option id="com.ti.ccstudio.buildDefinitions.MSP432_16.9.linkerID.STACK_SIZE.1465479594" name="Set C system stack size (--stack_size, -stack)" superClass="com.ti.ccstudio.buildDefinitions.MSP432_16.9.linkerID.STACK_SIZE" useByScannerDiscovery="false" value="512" valueType="string"/>
-								<option id="com.ti.ccstudio.buildDefinitions.MSP432_16.9.linkerID.HEAP_SIZE.1165617471" superClass="com.ti.ccstudio.buildDefinitions.MSP432_16.9.linkerID.HEAP_SIZE" value="16384" valueType="string"/>
+								<option id="com.ti.ccstudio.buildDefinitions.MSP432_16.9.linkerID.HEAP_SIZE.1165617471" name="Heap size for C/C++ dynamic memory allocation (--heap_size, -heap)" superClass="com.ti.ccstudio.buildDefinitions.MSP432_16.9.linkerID.HEAP_SIZE" value="16384" valueType="string"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.MSP432_16.9.exeLinker.inputType__CMD_SRCS.2027084491" name="Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.MSP432_16.9.exeLinker.inputType__CMD_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.MSP432_16.9.exeLinker.inputType__CMD2_SRCS.158579067" name="Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.MSP432_16.9.exeLinker.inputType__CMD2_SRCS"/>
 								<inputType id="com.ti.ccstudio.buildDefinitions.MSP432_16.9.exeLinker.inputType__GEN_CMDS.1549467570" name="Generated Linker Command Files" superClass="com.ti.ccstudio.buildDefinitions.MSP432_16.9.exeLinker.inputType__GEN_CMDS"/>

@@ -78,21 +78,40 @@ int main(void)
     Interrupt_enableMaster();
 
     struct uart_config config = {.id = 0, .baud_rate = 115200, .flags = 0};
+    struct uart_config config2 = {.id = 2, .baud_rate = 115200, .flags = 0};
     struct uart_channel channel = uart_open(config);
+    struct uart_channel channel2 = uart_open(config2);
 
-    err = fputs("Check!\r\n", channel.tx);
-    err = fputs("Test\n", channel.tx);
-
-    int c = EOF;
-    while(c == EOF) {c = fgetc(channel.rx);}
-    fputc(c, channel.tx);
-    fclose(channel.rx);
-    fclose(channel.tx);
+    err = fputs("AT\r\n", channel2.tx);
 
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
 
+    int c1 = EOF;
+    int c2 = EOF;
+    char receiveBuffer[1000] = {'\0'};
+    char charstr[2] = {'\0'};
     while(1)
     {
-        PCM_gotoLPM0();
+        c2 = fgetc(channel2.rx);
+        if (c2 != EOF) {
+            fputc(c2, channel.tx);
+            sprintf(charstr, "%c", c2);
+            strcat(receiveBuffer, charstr);
+        }
+        else {
+            if(strstr(receiveBuffer, "OK"))
+            {
+                receiveBuffer[0] = '\0';
+                fputs("HI\r\n", channel2.tx);
+            }
+        }
+        c1 = fgetc(channel.rx);
+        if (c1 != EOF) {
+            fputc(c1, channel2.tx);
+        }
     }
+    fclose(channel.rx);
+    fclose(channel.tx);
+    fclose(channel2.rx);
+    fclose(channel2.tx);
 }
