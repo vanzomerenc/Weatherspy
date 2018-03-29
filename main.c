@@ -58,13 +58,24 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-
+#include <string.h>
 #include <drv/uart.h>
 #include <drv/uart_stdio_support.h>
 #include <drv/timing.h>
+#include "htmlbody.h"
+int lookfor(char* buffer, char* term);
 
 int main(void)
 {
+    enum state {SET_MULTIPLE, SET_SERVER, WAIT_CONNECT, INIT_HEADER, SEND_HEADER, INIT_BODY, SEND_BODY, CLOSE_CONNECT, WAIT_RECEIVE, RECEIVE};
+    enum state currState = SET_MULTIPLE;
+    int red = 0;
+    int blue = 0;
+    int green = 0;
+    int temp = 0;
+    int humidity = 0;
+    float pressure = 0;
+
     /* Stop Watchdog  */
     MAP_WDT_A_holdTimer();
 
@@ -82,14 +93,18 @@ int main(void)
     struct uart_channel channel = uart_open(config);
     struct uart_channel channel2 = uart_open(config2);
 
-    err = fputs("AT\r\n", channel2.tx);
+    err = fputs("AT+CIPMUX=1\r\n", channel2.tx);
 
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
 
     int c1 = EOF;
     int c2 = EOF;
-    char receiveBuffer[1000] = {'\0'};
+    char receiveBuffer[1200] = {'\0'};
     char charstr[2] = {'\0'};
+    char sendLine[1200] = {'\0'};
+    char sendBody[1200] = {'\0'};
+    char htmlHeader[] = "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n";
+
     while(1)
     {
         c2 = fgetc(channel2.rx);
@@ -99,10 +114,68 @@ int main(void)
             strcat(receiveBuffer, charstr);
         }
         else {
-            if(strstr(receiveBuffer, "OK"))
+            switch(currState)
             {
-                receiveBuffer[0] = '\0';
-                fputs("HI\r\n", channel2.tx);
+                case SET_MULTIPLE:
+                    if(lookfor(receiveBuffer, "OK"))
+                    {
+                        currState = SET_SERVER;
+                        fputs("AT+CIPSERVER=1,80\r\n", channel2.tx);
+                        //delay_ms(50);
+                    }
+                    break;
+                case SET_SERVER:
+                    if(lookfor(receiveBuffer, "0,CONNECT"))
+                    {
+                        currState = WAIT_CONNECT;
+                        //delay_ms(50);
+                    }
+                    break;
+                case WAIT_CONNECT:
+                    if(lookfor(receiveBuffer, "+IPD,0"))
+                    {
+                        currState = INIT_HEADER;
+                        sprintf(sendLine, "AT+CIPSEND=0,%d\r\n", strlen(htmlHeader));
+                        fputs(sendLine, channel2.tx);
+                        //delay_ms(50);
+                    }
+                    break;
+                case INIT_HEADER:
+                    if(lookfor(receiveBuffer, ">"))
+                    {
+                        currState = SEND_HEADER;
+                        fputs(htmlHeader, channel2.tx);
+                        //delay_ms(50);
+                    }
+                    break;
+                case SEND_HEADER:
+                    if(lookfor(receiveBuffer, "SEND OK"))
+                    {
+                        currState = INIT_BODY;
+                        sprintf(sendBody, htmlBody, 70, 50, 29.3);
+                        sprintf(sendLine, "AT+CIPSEND=0,%d\r\n", strlen(sendBody));
+                        fputs(sendLine, channel2.tx);
+                        //delay_ms(50);
+                    }
+                    break;
+                case INIT_BODY:
+                    if(lookfor(receiveBuffer, ">"))
+                    {
+                        currState = SEND_BODY;
+                        fputs(sendBody, channel2.tx);
+                        //delay_ms(50);
+                    }
+                    break;
+                case SEND_BODY:
+                    if(lookfor(receiveBuffer, "SEND OK"))
+                    {
+                        currState = CLOSE_CONNECT;
+                        fputs("AT+CIPCLOSE=0\r\n", channel2.tx);
+                        //delay_ms(50);
+                    }
+                    break;
+                default:
+                    break;
             }
         }
         c1 = fgetc(channel.rx);
@@ -114,4 +187,14 @@ int main(void)
     fclose(channel.tx);
     fclose(channel2.rx);
     fclose(channel2.tx);
+}
+
+int lookfor(char* buffer, char* term)
+{
+    if(strstr(buffer, term))
+    {
+        buffer[0] = '\0';
+        return 1;
+    }
+    return 0;
 }
