@@ -1,8 +1,16 @@
 eclipse.preferences.version=1
+encoding//Debug/drv/BME280/subdir_rules.mk=UTF-8
+encoding//Debug/drv/BME280/subdir_vars.mk=UTF-8
+encoding//Debug/drv/adc/subdir_rules.mk=UTF-8
+encoding//Debug/drv/adc/subdir_vars.mk=UTF-8
+encoding//Debug/drv/i2c/subdir_rules.mk=UTF-8
+encoding//Debug/drv/i2c/subdir_vars.mk=UTF-8
 encoding//Debug/drv/subdir_rules.mk=UTF-8
 encoding//Debug/drv/subdir_vars.mk=UTF-8
 encoding//Debug/makefile=UTF-8
 encoding//Debug/objects.mk=UTF-8
+encoding//Debug/sensors/subdir_rules.mk=UTF-8
+encoding//Debug/sensors/subdir_vars.mk=UTF-8
 encoding//Debug/sources.mk=UTF-8
 encoding//Debug/subdir_rules.mk=UTF-8
 encoding//Debug/subdir_vars.mk=UTF-8
