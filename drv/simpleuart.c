@@ -4,15 +4,9 @@
  *  Created on: Mar 24, 2018
  *      Author: Chris van Zomeren
  *
- * A simple UART driver with blocking transmission and interrupt-driven reception.
- * Some improvements could be made, such as (in no particular order):
- *  - making the transmission also interrupt-driven, to avoid blocking application code
- *  - verifying baud settings when initializing a module
- *  - implementing some of the advanced features supported by the hardware UART module
- *  - implementing DMA send/receive
- *  - detecting changes to SMCLK and adjusting baud settings appropriately
- *  - providing some commonly-used rx callbacks (e.g. echo/forwarding, or buffered receive)
  */
+
+#include "simpleuart.h"
 
 #include <msp432p401r.h>
 #include <cs.h>
@@ -20,7 +14,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <drv/uart.h>
 
 #define UART_FLAGS_MASK (UCPEN | UCPAR | UCMSB | UC7BIT | UCSPB)
 
@@ -30,12 +23,8 @@ static uint8_t _baud_calc_mod_pattern[UART_BAUD_MODULATION_TABLE_SIZE];
 
 
 
-// It's probably worth providing an overview of the interrupt handling here.
-//
-// When a UartInterface is initialized, one of these is set as its interrupt handler.
-// They're numbered based on which hardware module is being used (out of the 4 available).
-// Each module has its own handler and its own struct _uart_interface containing
-// all the information for that interface.
+// Each hardware UART module has its own interrupt handler and its own
+// struct _uart_interface containing all the information for that interface.
 //
 // Each of these handlers is just a stub which delegates to
 //     _eusci_common_uart_interrupt_handler,
@@ -60,12 +49,12 @@ static void _eusci_a3_uart_interrupt_handler(void);
 struct _uart_interface
 {
     struct uart_receive_callback _rx_callback; // User function called when a byte is received
-    EUSCI_A_Type *_module;                     // raw hardware module
-    uint32_t _interrupt_id;                    // DriverLib interrupt ID
+    EUSCI_A_Type *_module;                      // raw hardware module
+    uint32_t _interrupt_id;                     // DriverLib interrupt ID
     void (*_interrupt_handler)(void);          // interrupt handler for module
-    DIO_PORT_Interruptable_Type *_port;        // raw hardware port for module
-    int16_t _rx_pin;                           // bitmask for receive pin
-    int16_t _tx_pin;                           // bitmask for transmit pin
+    DIO_PORT_Interruptable_Type *_port;         // raw hardware port for module
+    int16_t _rx_pin;                            // bitmask for receive pin
+    int16_t _tx_pin;                            // bitmask for transmit pin
 };
 
 static struct _uart_interface _uart_interface[4] = {
@@ -261,7 +250,6 @@ void uart_enable(UartInterface iface)
     iface->_module->IE = UCRXIE; // enable interrupt only for receive
 }
 
-extern void delay_ms(uint32_t n); // needed for a hack in uart_disable
 void uart_disable(UartInterface iface)
 {
     if(iface->_module->CTLW0 & UCSWRST) return; // already disabled

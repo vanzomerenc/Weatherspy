@@ -7,13 +7,15 @@
  * TODO: set errno on errors
  */
 
+#include "simpleuart_stdio_support.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <file.h>
 
-#include <drv/uart.h>
-#include <drv/uart_stdio_support.h>
+#include "simpleuart.h"
+
 
 #define UART_NUM_CHANNELS 4
 #define UART_RECEIVE_BUFFER_SIZE BUFSIZ

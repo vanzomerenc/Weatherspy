@@ -1,15 +1,49 @@
 #pragma once
 /*
- * uart.h
+ * simpleuart.h
  *
  * Created on: March 24, 2018
  *     Author: Chris van Zomeren
+ *
+ * A simple UART driver with blocking transmission and interrupt-driven reception.
+ *
+ * Devices are initialized with uart_init(), which takes a device configuration
+ * and returns an object representing the configured hardware device.
+ * After initializing, the device is disabled by default.
+ *
+ * The device may be enabled using uart_enable() and disabled using uart_disable().
+ *
+ * Data is transmitted using one of the uart_send_* functions. These are:
+ *  - uart_send_byte() for a single character
+ *  - uart_send_bytes() for a known number of characters
+ *  - uart_send_string() for a string or array of characters terminated by '\0'
+ *
+ * Data is received asynchronously, and handled by a user-provided handler,
+ * set using uart_set_receive_handler().
+ * This handler consists of a function, and a "context" pointer used by the function to
+ * store data between calls. The context may point to an arbitrary data structure used
+ * by the handler function, or it may be NULL if it is not used by the handler function.
+ * When called, the handler function is given two arguments:
+ *  - the user-provided "context" pointer
+ *  - the character received.
+ *
+ * Some improvements could be made, such as (in no particular order):
+ *  - making the transmission also interrupt-driven, to avoid blocking application code
+ *  - verifying baud settings when initializing a module
+ *  - implementing some of the advanced features supported by the hardware UART module
+ *  - implementing DMA send/receive
+ *  - detecting changes to SMCLK and adjusting baud settings appropriately
+ *  - providing some commonly-used receive callbacks (e.g. echo/forwarding, or buffered receive)
  */
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 
+
+// This function should be provided by the user of this library.
+// TODO: This is only used in uart_disable, as a quick hack to avoid losing the last transmitted character.
+extern void delay_ms(uint32_t n);
 
 
 // Flag constants for struct uart_config
@@ -63,9 +97,9 @@ struct uart_receive_callback
 //
 struct uart_config
 {
-    int id;
-    uint32_t baud_rate;
-    uint16_t flags;
+    int id;             // hardware interface ID. On the MSP432, there are 4 of these, eUSCI0 (0) through eUSCI3 (3)
+    uint32_t baud_rate; // baud rate
+    uint16_t flags;     // some combination of UART_FLAG_*, or 0 to use the hardware defaults.
 };
 
 // Initializes a UART interface with the given config, and returns a pointer to the
