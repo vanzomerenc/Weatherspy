@@ -72,9 +72,9 @@ int main(void)
     int red = 0;
     int blue = 0;
     int green = 0;
-    int temp = 0;
-    int humidity = 0;
-    float pressure = 0;
+    int temp = 75;
+    int humidity = 30;
+    float pressure = 29.145;
 
     /* Stop Watchdog  */
     MAP_WDT_A_holdTimer();
@@ -83,7 +83,7 @@ int main(void)
 
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
-
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN0 | GPIO_PIN1 | GPIO_PIN2);
     int err = uart_use_stdio_support();
 
     Interrupt_enableMaster();
@@ -152,7 +152,7 @@ int main(void)
                     if(lookfor(receiveBuffer, "SEND OK"))
                     {
                         currState = INIT_BODY;
-                        sprintf(sendBody, htmlBody, 70, 50, 29.3);
+                        sprintf(sendBody, htmlBody, temp, humidity, pressure);
                         sprintf(sendLine, "AT+CIPSEND=0,%d\r\n", strlen(sendBody));
                         fputs(sendLine, channel2.tx);
                         //delay_ms(50);
@@ -172,6 +172,34 @@ int main(void)
                         currState = CLOSE_CONNECT;
                         fputs("AT+CIPCLOSE=0\r\n", channel2.tx);
                         //delay_ms(50);
+                    }
+                    break;
+                case CLOSE_CONNECT:
+                    if(lookfor(receiveBuffer, "0,CLOSED"))
+                    {
+                        currState = WAIT_RECEIVE;
+                    }
+                    break;
+                case WAIT_RECEIVE:
+                    if(strstr(receiveBuffer, "/?"))
+                    {
+                        red = strstr(receiveBuffer, "red=on") ? 1 : 0;
+                        green = strstr(receiveBuffer, "green=on") ? 1 : 0;
+                        blue = strstr(receiveBuffer, "blue=on") ? 1 : 0;
+
+                        if(strstr(receiveBuffer, "OnOff=On"))
+                        {
+                            MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0 | GPIO_PIN1 | GPIO_PIN2);
+                            if(red) MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN0);
+                            if(green) MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
+                            if(blue) MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN2);
+                        }
+                        if(strstr(receiveBuffer, "OnOff=Off"))
+                        {
+                            MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0 | GPIO_PIN1 | GPIO_PIN2);
+                        }
+                        receiveBuffer[0] = '\0';
+                        currState = WAIT_CONNECT;
                     }
                     break;
                 default:
