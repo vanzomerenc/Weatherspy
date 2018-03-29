@@ -63,11 +63,12 @@
 #include <drv/uart_stdio_support.h>
 #include <drv/timing.h>
 #include "htmlbody.h"
-int lookfor(char* buffer, char* term);
+int clear_if_found(char* buffer, char* term);
+int lookforchannel(char* buffer, char* term);
 
 int main(void)
 {
-    enum state {SET_MULTIPLE, SET_SERVER, WAIT_CONNECT, INIT_HEADER, SEND_HEADER, INIT_BODY, SEND_BODY, CLOSE_CONNECT, WAIT_RECEIVE, RECEIVE};
+    enum state {SET_MULTIPLE, SET_SERVER, WAIT_CONNECT, INIT_HEADER, SEND_HEADER, INIT_BODY, SEND_BODY, CLOSE_CONNECT, WAIT_RECEIVE, RECEIVE, CONNECT};
     enum state currState = SET_MULTIPLE;
     int red = 0;
     int blue = 0;
@@ -103,8 +104,9 @@ int main(void)
     char charstr[2] = {'\0'};
     char sendLine[1200] = {'\0'};
     char sendBody[1200] = {'\0'};
+    char receiveExpect[100] = {'\0'};
     char htmlHeader[] = "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n";
-
+    int ipdchannel = 0;
     while(1)
     {
         c2 = fgetc(channel2.rx);
@@ -117,7 +119,7 @@ int main(void)
             switch(currState)
             {
                 case SET_MULTIPLE:
-                    if(lookfor(receiveBuffer, "OK"))
+                    if(clear_if_found(receiveBuffer, "OK"))
                     {
                         currState = SET_SERVER;
                         fputs("AT+CIPSERVER=1,80\r\n", channel2.tx);
@@ -125,23 +127,57 @@ int main(void)
                     }
                     break;
                 case SET_SERVER:
-                    if(lookfor(receiveBuffer, "0,CONNECT"))
+                    if(strstr(receiveBuffer, ",CONNECT"))
                     {
                         currState = WAIT_CONNECT;
                         //delay_ms(50);
                     }
                     break;
                 case WAIT_CONNECT:
-                    if(lookfor(receiveBuffer, "+IPD,0"))
+                    ipdchannel = lookforchannel(receiveBuffer, "+IPD,");
+                    if(ipdchannel != -1)
                     {
-                        currState = INIT_HEADER;
-                        sprintf(sendLine, "AT+CIPSEND=0,%d\r\n", strlen(htmlHeader));
-                        fputs(sendLine, channel2.tx);
                         //delay_ms(50);
+                        currState = CONNECT;
+                    }
+                    break;
+                case CONNECT:
+                    if(strstr(receiveBuffer, "Host"))
+                    {
+                        if(strstr(receiveBuffer, "/?"))
+                        {
+                            red = strstr(receiveBuffer, "red=on") ? 1 : 0;
+                            green = strstr(receiveBuffer, "green=on") ? 1 : 0;
+                            blue = strstr(receiveBuffer, "blue=on") ? 1 : 0;
+
+                            if(strstr(receiveBuffer, "OnOff=On"))
+                            {
+                                MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0 | GPIO_PIN1 | GPIO_PIN2);
+                                if(red) MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN0);
+                                if(green) MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN1);
+                                if(blue) MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN2);
+                            }
+                            if(strstr(receiveBuffer, "OnOff=Off"))
+                            {
+                                MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0 | GPIO_PIN1 | GPIO_PIN2);
+                            }
+                            //delay_ms(50);
+                            receiveBuffer[0] = '\0';
+                            currState = WAIT_CONNECT;
+                        }
+                        else
+                        {
+                            currState = INIT_HEADER;
+                            sprintf(sendLine, "AT+CIPSEND=%d,%d\r\n", ipdchannel, strlen(htmlHeader));
+                            receiveBuffer[0] = '\0';
+                            //delay_ms(50);
+                            fputs(sendLine, channel2.tx);
+                            //delay_ms(50);
+                        }
                     }
                     break;
                 case INIT_HEADER:
-                    if(lookfor(receiveBuffer, ">"))
+                    if(clear_if_found(receiveBuffer, ">"))
                     {
                         currState = SEND_HEADER;
                         fputs(htmlHeader, channel2.tx);
@@ -149,17 +185,17 @@ int main(void)
                     }
                     break;
                 case SEND_HEADER:
-                    if(lookfor(receiveBuffer, "SEND OK"))
+                    if(clear_if_found(receiveBuffer, "SEND OK"))
                     {
                         currState = INIT_BODY;
                         sprintf(sendBody, htmlBody, temp, humidity, pressure);
-                        sprintf(sendLine, "AT+CIPSEND=0,%d\r\n", strlen(sendBody));
+                        sprintf(sendLine, "AT+CIPSEND=%d,%d\r\n", ipdchannel, strlen(sendBody));
                         fputs(sendLine, channel2.tx);
                         //delay_ms(50);
                     }
                     break;
                 case INIT_BODY:
-                    if(lookfor(receiveBuffer, ">"))
+                    if(clear_if_found(receiveBuffer, ">"))
                     {
                         currState = SEND_BODY;
                         fputs(sendBody, channel2.tx);
@@ -167,17 +203,19 @@ int main(void)
                     }
                     break;
                 case SEND_BODY:
-                    if(lookfor(receiveBuffer, "SEND OK"))
+                    if(clear_if_found(receiveBuffer, "SEND OK"))
                     {
                         currState = CLOSE_CONNECT;
-                        fputs("AT+CIPCLOSE=0\r\n", channel2.tx);
+                        sprintf(sendLine, "AT+CIPCLOSE=%d\r\n", ipdchannel);
+                        fputs(sendLine, channel2.tx);
                         //delay_ms(50);
                     }
                     break;
                 case CLOSE_CONNECT:
-                    if(lookfor(receiveBuffer, "0,CLOSED"))
+                    sprintf(receiveExpect, "%d,CLOSED", ipdchannel);
+                    if(clear_if_found(receiveBuffer, receiveExpect))
                     {
-                        currState = WAIT_RECEIVE;
+                        currState = WAIT_CONNECT;
                     }
                     break;
                 case WAIT_RECEIVE:
@@ -198,7 +236,7 @@ int main(void)
                         {
                             MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN0 | GPIO_PIN1 | GPIO_PIN2);
                         }
-                        receiveBuffer[0] = '\0';
+                        delay_ms(50);
                         currState = WAIT_CONNECT;
                     }
                     break;
@@ -217,7 +255,7 @@ int main(void)
     fclose(channel2.tx);
 }
 
-int lookfor(char* buffer, char* term)
+int clear_if_found(char* buffer, char* term)
 {
     if(strstr(buffer, term))
     {
@@ -225,4 +263,18 @@ int lookfor(char* buffer, char* term)
         return 1;
     }
     return 0;
+}
+
+int lookforchannel(char* buffer, char* term)
+{
+    char* sptr = strstr(buffer, term);
+    if(sptr)
+    {
+        sptr = sptr + strlen(term);
+        if(sptr != NULL && *sptr != '\0')
+        {
+            return ((*sptr) - '0');
+        }
+    }
+    return -1;
 }
