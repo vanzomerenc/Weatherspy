@@ -40,3 +40,8 @@ struct uart_channel uart_open(
     struct uart_config config,
     struct uart_input_config input_config,
     struct uart_output_config output_config);
+
+int uart_replace_standard_streams(
+    struct uart_config config,
+    struct uart_input_config input_config,
+    struct uart_output_config output_config);

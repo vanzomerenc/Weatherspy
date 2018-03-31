@@ -36,10 +36,10 @@ struct _uart_channel
 
 static struct _uart_channel _uart_channel[UART_NUM_CHANNELS] =
 {
- (struct _uart_channel) {-1, -1, NULL, 0, 0, 0},
- (struct _uart_channel) {-1, -1, NULL, 0, 0, 0},
- (struct _uart_channel) {-1, -1, NULL, 0, 0, 0},
- (struct _uart_channel) {-1, -1, NULL, 0, 0, 0}
+ (struct _uart_channel) {-1, -1, NULL, 0, NULL, 0, 0, 0},
+ (struct _uart_channel) {-1, -1, NULL, 0, NULL, 0, 0, 0},
+ (struct _uart_channel) {-1, -1, NULL, 0, NULL, 0, 0, 0},
+ (struct _uart_channel) {-1, -1, NULL, 0, NULL, 0, 0, 0}
 };
 
 
@@ -297,17 +297,17 @@ int uart_use_stdio_support()
 
 
 
-struct uart_channel uart_open(
+static struct _uart_channel *_uart_prepare_channel(
     struct uart_config config,
     struct uart_input_config input_config,
     struct uart_output_config output_config)
 {
-    struct uart_channel result = {.tx = NULL, .rx = NULL};
+    if(config.id < 0 || config.id > UART_NUM_CHANNELS) { return NULL; }
 
-    if(config.id < 0 || config.id > UART_NUM_CHANNELS) { return result; }
     struct _uart_channel *dev = &_uart_channel[config.id];
-
-    if(dev->interface != NULL) { return result; }
+    // Disallow using an interface which is already initialized.
+    // TODO: Are there any cases where we _do_ want to reuse an existing UART interface?
+    if(dev->interface != NULL) { return NULL; }
 
     dev->interface = uart_init(config);
 
@@ -330,6 +330,19 @@ struct uart_channel uart_open(
 
     uart_enable(dev->interface);
 
+    return dev;
+}
+
+struct uart_channel uart_open(
+    struct uart_config config,
+    struct uart_input_config input_config,
+    struct uart_output_config output_config)
+{
+    struct uart_channel result = {.tx = NULL, .rx = NULL};
+
+    struct _uart_channel *dev = _uart_prepare_channel(config, input_config, output_config);
+    if(dev == NULL) { return result; }
+
     // Open the tx and rx streams, letting the runtime support library
     // take over.
     char dev_path[7] = "uart:_";
@@ -344,4 +357,26 @@ struct uart_channel uart_open(
     setvbuf(result.rx, NULL, _IONBF, 0);
 
     return result;
+}
+
+int uart_replace_standard_streams(
+    struct uart_config config,
+    struct uart_input_config input_config,
+    struct uart_output_config output_config)
+{
+    struct _uart_channel *dev = _uart_prepare_channel(config, input_config, output_config);
+    if(dev == NULL) { return -1; }
+
+    char dev_path[7] = "uart:_";
+    dev_path[5] = config.id + '0';
+    freopen(dev_path, "w", stdout);
+    // TODO: support stderr... this will need changes to _uart_channel and file-level operations
+    //freopen(dev_path, "w", stderr);
+    freopen(dev_path, "r", stdin);
+
+    setvbuf(stdout, NULL, _IONBF, 0);
+    //setvbuf(stderr, NULL, _IONBF, 0);
+    setvbuf(stdin, NULL, _IONBF, 0);
+
+    return 0;
 }
