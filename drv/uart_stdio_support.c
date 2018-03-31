@@ -11,9 +11,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <file.h>
+#include <string.h>
 
 #include <drv/uart.h>
 #include <drv/uart_stdio_support.h>
+#include <drv/line_buf.h>
 
 #define UART_NUM_CHANNELS 4
 #define UART_RECEIVE_BUFFER_SIZE BUFSIZ
@@ -24,6 +26,8 @@ struct _uart_channel
     int write_fd;                          // Writes to channel must know this fd
     int read_fd;                           // Reads from channel must know this fd
     UartInterface interface;               // UART interface associated with the channel
+    bool echo;                             // Enable or disable receive echo
+    LineBuf line_buf;                      // Optional, used for tty-like line buffering
     uint16_t rx_buf_trailing;              // -,
     uint16_t rx_buf_leading;               //  |- ring buffer holding received data
     bool rx_data_was_lost;                 //  |
@@ -135,9 +139,50 @@ static int _uart_close_one_way(int dev_fd)
     {
         uart_disable(dev->interface);
         dev->interface = NULL;
+        line_buf_free(dev->line_buf);
+        dev->line_buf = NULL;
     }
 
     return 0;
+}
+
+
+
+static int _uart_read_unbuffered_unsafe(struct _uart_channel *dev, char *buf, unsigned count)
+{
+    int num_read = 0;
+    while(
+            dev->rx_buf_trailing != dev->rx_buf_leading
+            && num_read < count)
+    {
+        char c = dev->rx_buf[dev->rx_buf_trailing];
+        if(dev->echo) { uart_send_byte(dev->interface, c); }
+        buf[num_read] = c;
+        dev->rx_buf_trailing = (dev->rx_buf_trailing + 1) % UART_RECEIVE_BUFFER_SIZE;
+        num_read++;
+    }
+    return num_read;
+}
+
+static int _uart_read_line_buffered_unsafe(struct _uart_channel *dev, char *buf, unsigned count)
+{
+    while(
+            dev->rx_buf_trailing != dev->rx_buf_leading
+            && line_get_read_state(dev->line_buf) == LINE_FILLING)
+    {
+        char c = dev->rx_buf[dev->rx_buf_trailing];
+        if(dev->echo) { uart_send_byte(dev->interface, c); }
+        line_buf_put_char(dev->line_buf, c);
+        dev->rx_buf_trailing = (dev->rx_buf_trailing + 1) % UART_RECEIVE_BUFFER_SIZE;
+    }
+    if(line_get_read_state(dev->line_buf) == LINE_DRAINING)
+    {
+        return line_buf_get_line(dev->line_buf, buf, count);
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 // Reads from dev_fd if dev_fd is the read_fd for a channel.
@@ -150,13 +195,13 @@ static int _uart_read(int dev_fd, char *buf, unsigned count)
     if(dev_fd != dev->read_fd) { return -1; }
 
     int num_read = 0;
-    while(
-            dev->rx_buf_trailing != dev->rx_buf_leading
-            && num_read < count)
+    if(dev->line_buf)
     {
-        buf[num_read] = dev->rx_buf[dev->rx_buf_trailing];
-        dev->rx_buf_trailing = (dev->rx_buf_trailing + 1) % UART_RECEIVE_BUFFER_SIZE;
-        num_read++;
+        num_read = _uart_read_line_buffered_unsafe(dev, buf, count);
+    }
+    else
+    {
+        num_read = _uart_read_unbuffered_unsafe(dev, buf, count);
     }
 
     // This check has to happen _after_ we've already read the data,
@@ -204,6 +249,10 @@ static off_t _uart_lseek(int dev_fd, off_t offset, int origin)
     {
         if(dev_fd == dev->read_fd)
         {
+            if(dev->line_buf)
+            {
+                line_buf_reset(dev->line_buf);
+            }
             dev->rx_buf_trailing = dev->rx_buf_leading;
             dev->rx_data_was_lost = false;
         }
@@ -246,7 +295,12 @@ int uart_use_stdio_support()
             _uart_rename);
 }
 
-struct uart_channel uart_open(struct uart_config config)
+
+
+struct uart_channel uart_open(
+    struct uart_config config,
+    struct uart_input_config input_config,
+    struct uart_output_config output_config)
 {
     struct uart_channel result = {.tx = NULL, .rx = NULL};
 
@@ -262,18 +316,31 @@ struct uart_channel uart_open(struct uart_config config)
     receive_callback.context = dev;
     uart_set_receive_handler(dev->interface, receive_callback);
 
+    if(input_config.complete_lines)
+    {
+        if(dev->line_buf) { line_buf_reset(dev->line_buf); }
+        else { dev->line_buf = line_buf_alloc(); }
+    }
+    else
+    {
+        line_buf_free(dev->line_buf);
+    }
+
+    dev->echo = input_config.echo;
+
     uart_enable(dev->interface);
 
     // Open the tx and rx streams, letting the runtime support library
     // take over.
-    // We call setvbuf here because buffering interferes with timely
-    // transmission and reception, and because we already have our own
-    // receive buffers anyway.
     char dev_path[7] = "uart:_";
     dev_path[5] = config.id + '0';
     result.tx = fopen(dev_path, "w");
-    setvbuf(result.tx, NULL, _IONBF, 0);
     result.rx = fopen(dev_path, "r");
+
+    // The buffering done by the standard library will always give us
+    // whatever it has. If we want line buffering that always gives full lines,
+    // we have to do it ourselves, so we won't need the standard buffering anyway.
+    setvbuf(result.tx, NULL, _IONBF, 0);
     setvbuf(result.rx, NULL, _IONBF, 0);
 
     return result;
