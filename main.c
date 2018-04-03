@@ -62,6 +62,7 @@
 #include <drv/uart.h>
 #include <drv/uart_stdio_support.h>
 #include <drv/timing.h>
+#include <drv/esp8266.h>
 
 int main(void)
 {
@@ -73,23 +74,33 @@ int main(void)
     MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
     MAP_GPIO_setAsOutputPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
 
-    int err = uart_use_stdio_support();
+    uart_use_stdio_support();
 
+    Interrupt_disableSleepOnIsrExit();
     Interrupt_enableMaster();
 
-    struct uart_config config = {.id = 0, .baud_rate = 115200, .flags = 0};
-    struct uart_channel channel = uart_open(config);
+    uart_replace_standard_streams(
+        (struct uart_config) {.id = 0, .baud_rate = 115200, .flags = 0},
+        (struct uart_input_config) {.complete_lines = true, .echo = true},
+        (struct uart_output_config) {});
 
-    err = fputs("Check!\r\n", channel.tx);
-    err = fputs("Test\n", channel.tx);
+    struct uart_channel wifi_uart = uart_open(
+            (struct uart_config) {.id = 2, .baud_rate = 115200, .flags = 0},
+            (struct uart_input_config) {.complete_lines = true, .echo = false},
+            (struct uart_output_config) {});
 
-    int c = EOF;
-    while(c == EOF) {c = fgetc(channel.rx);}
-    fputc(c, channel.tx);
-    fclose(channel.rx);
-    fclose(channel.tx);
+    puts("What up!\r\n");
+    puts("Test\r\n");
 
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
+
+    delay_ms(1000);
+
+    AtInterface wifi = at_init(wifi_uart.tx, wifi_uart.rx);
+
+    int err = at_check_alive(wifi);
+
+    printf("%d", err);
 
     while(1)
     {
