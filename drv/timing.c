@@ -1,5 +1,6 @@
 #include "timing.h"
 
+#include "driverlib.h"
 #include <stdbool.h>
 
 
@@ -17,6 +18,28 @@ static void _timing_exit_critical_section(void)
 	{
 		MAP_Interrupt_enableMaster();
 	}
+}
+
+
+
+static int64_t _timing_ms_monotonic = 0;
+
+static void _timing_systick_interrupt_handler(void)
+{
+    _timing_ms_monotonic++;
+}
+
+static void _timing_enable_systick()
+{
+    SysTick_enableModule();
+    SysTick_setPeriod(CS_getMCLK() / 1000);
+    SysTick_registerInterrupt(_timing_systick_interrupt_handler);
+    SysTick_enableInterrupt();
+}
+
+int64_t now()
+{
+    return _timing_ms_monotonic;
 }
 
 
@@ -47,6 +70,8 @@ void init_clocks(void)
 
 	// Initializing SMCLK to its maximum, which is 24MHz
 	MAP_CS_initClockSignal(CS_SMCLK, CS_HFXTCLK_SELECT, CS_CLOCK_DIVIDER_2);
+
+	_timing_enable_systick();
 
 	_timing_exit_critical_section();
 }
@@ -106,7 +131,11 @@ void delay_spin_ms(uint32_t n)
 // TODO: use something other than spinning for most delays.
 void delay_ms(uint32_t n)
 {
-    return delay_spin_ms(n);
+    int64_t start = now();
+    while(start + n < now())
+    {
+        PCM_gotoLPM0();
+    }
 }
 
 

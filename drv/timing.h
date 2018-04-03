@@ -6,7 +6,6 @@
 // clock frequencies and implement delays
 // of various lengths.
 
-#include "driverlib.h"
 #include <stdint.h>
 
 typedef uint32_t ClockSignalID;
@@ -33,3 +32,5 @@ void delay_spin_ms(uint32_t n);
 
 // Delays for n milliseconds.
 void delay_ms(uint32_t n);
+
+int64_t now();
