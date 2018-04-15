@@ -63,21 +63,53 @@
 #include <drv/uart_stdio_support.h>
 #include <drv/timing.h>
 #include <drv/esp8266.h>
+#include <station.h>
 
+void clockInit48MHzXTL(void) {  // sets the clock module to use the external 48 MHz crystal
+
+    /* Configuring pins for peripheral/crystal usage */
+    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_PJ,
+            GPIO_PIN3 | GPIO_PIN2, GPIO_PRIMARY_MODULE_FUNCTION);
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0);
+
+    CS_setExternalClockSourceFrequency(32000,48000000); // enables getMCLK, getSMCLK to know externally set frequencies
+
+    /* Starting HFXT in non-bypass mode without a timeout. Before we start
+     * we have to change VCORE to 1 to support the 48MHz frequency */
+    MAP_PCM_setCoreVoltageLevel(PCM_VCORE1);
+    MAP_FlashCtl_setWaitState(FLASH_BANK0, 2);
+    MAP_FlashCtl_setWaitState(FLASH_BANK1, 2);
+    CS_startHFXT(false);  // false means that there are no timeouts set, will return when stable
+
+    /* Initializing MCLK to HFXT (effectively 48MHz) */
+    MAP_CS_initClockSignal(CS_MCLK, CS_HFXTCLK_SELECT, CS_CLOCK_DIVIDER_1);
+}
 int main(void)
 {
     /* Stop Watchdog  */
     MAP_WDT_A_holdTimer();
 
-    init_clocks();
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0);
 
-    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
+    clockInit48MHzXTL();
+    MAP_CS_initClockSignal(CS_MCLK, CS_HFXTCLK_SELECT, CS_CLOCK_DIVIDER_1);
+    MAP_CS_initClockSignal(CS_SMCLK, CS_HFXTCLK_SELECT, CS_CLOCK_DIVIDER_4);
 
-    uart_use_stdio_support();
+    //init_clocks();
 
-    Interrupt_disableSleepOnIsrExit();
+
+
+    //MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
+    //MAP_GPIO_setAsOutputPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
+
+    //uart_use_stdio_support();
+
+    init_station_module();
+    //Interrupt_disableSleepOnIsrExit();
+    rtc_init();
     Interrupt_enableMaster();
+
+    /**
 
     uart_replace_standard_streams(
         (struct uart_config) {.id = 0, .baud_rate = 115200, .flags = 0},
@@ -92,18 +124,27 @@ int main(void)
     puts("What up!\r\n");
     puts("Test\r\n");
 
-    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
+    */
 
-    delay_ms(1000);
+    //MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P4, GPIO_PIN0 | GPIO_PIN1);
 
-    AtInterface wifi = at_init(wifi_uart.tx, wifi_uart.rx);
+    //delay_ms(1000);
 
-    int err = at_check_alive(wifi);
+    //AtInterface wifi = at_init(wifi_uart.tx, wifi_uart.rx);
 
-    printf("%d", err);
+    //int err = at_check_alive(wifi);
+
+    //printf("%d", err);
 
     while(1)
     {
-        PCM_gotoLPM0();
+        run_station_module();
+        //PCM_gotoLPM0();
+        while(!rtc_second_passed)
+        {
+            MAP_PCM_gotoLPM0();
+        }
+        rtc_second_passed = false;
+        MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
     }
 }

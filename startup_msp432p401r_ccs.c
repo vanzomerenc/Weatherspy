@@ -57,7 +57,9 @@ extern unsigned long __STACK_END;
 /* External declarations for the interrupt handlers used by the application. */
 
 /* To be added by user */
-
+void handle_ADC_interrupt();
+/* To be added by user */
+void RTC_C_IRQHandler();
 
 /* Interrupt vector table.  Note that the proper constructs must be placed on this to  */
 /* ensure that it ends up at physical address 0x0000.0000 or at the start of          */
@@ -82,7 +84,7 @@ void (* const interruptVectors[])(void) =
     defaultISR,                             /* Debug monitor handler     */
     0,                                      /* Reserved                  */
     defaultISR,                             /* The PendSV handler        */
-    defaultISR,                             /* The SysTick handler       */
+    defaultISR,      /* The SysTick handler       */
     defaultISR,                             /* PSS ISR                   */
     defaultISR,                             /* CS ISR                    */
     defaultISR,                             /* PCM ISR                   */
@@ -107,12 +109,12 @@ void (* const interruptVectors[])(void) =
     defaultISR,                             /* EUSCIB1 ISR               */
     defaultISR,                             /* EUSCIB2 ISR               */
     defaultISR,                             /* EUSCIB3 ISR               */
-    defaultISR,                             /* ADC14 ISR                 */
+    handle_ADC_interrupt,                   /* ADC14 ISR                 */
     defaultISR,                             /* T32_INT1 ISR              */
     defaultISR,                             /* T32_INT2 ISR              */
     defaultISR,                             /* T32_INTC ISR              */
     defaultISR,                             /* AES ISR                   */
-    defaultISR,                             /* RTC ISR                   */
+    RTC_C_IRQHandler,                       /* RTC ISR                   */
     defaultISR,                             /* DMA_ERR ISR               */
     defaultISR,                             /* DMA_INT3 ISR              */
     defaultISR,                             /* DMA_INT2 ISR              */
