@@ -10,7 +10,7 @@
 
 void I2C_Init(void);
 
-#define I2C_TIMEOUT 10000
+#define I2C_TIMEOUT 100000
 
 #include <stdint.h>
 

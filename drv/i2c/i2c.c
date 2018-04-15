@@ -40,7 +40,7 @@ void I2C_Init(void) {
     // set the baud rate for the eUSCI which gets its clock from SMCLK
     // Clock_Init48MHz() from ClockSystem.c sets SMCLK = HFXTCLK/4 = 12 MHz
     // if the SMCLK is set to 12 MHz, divide by 120 for 100 kHz baud clock
-    UCB1BRW = 240;
+    UCB1BRW = 480;
     P6SEL0 |= 0x30;
     P6SEL1 &= ~0x30;                   // configure P6.4 and P6.5 as primary module function
     UCB1CTLW0 &= ~0x0001;              // enable eUSCI module
