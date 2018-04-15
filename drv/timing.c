@@ -132,7 +132,7 @@ void delay_spin_ms(uint32_t n)
 void delay_ms(uint32_t n)
 {
     int64_t start = now();
-    while(start + n < now())
+    while(start + n > now())
     {
         PCM_gotoLPM0();
     }
