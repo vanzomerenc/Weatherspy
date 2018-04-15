@@ -47,13 +47,9 @@ AtInterface at_init(FILE *tx, FILE *rx)
     struct _at_interface *iface = malloc(sizeof(struct _at_interface));
     iface->tx = tx;
     iface->rx = rx;
-    iface->timeout = 10;
+    iface->timeout = 1;
+    fputs("ATE0\r\n", iface->tx);
     fseek(rx, 0, SEEK_END);
-    if(at_check_alive(iface) != AT_OK)
-    {
-        at_free(iface);
-        return NULL;
-    }
     return iface;
 }
 
