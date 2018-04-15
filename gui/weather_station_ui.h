@@ -20,6 +20,8 @@
 # define LONG_RUN_AVG_N_SAMPLES 7200
 #endif
 
+int show_colon;
+
 int draw_weather_station_ui(struct weather_station_status status);
 
 #endif /* GUI_WEATHER_STATION_UI_H_ */

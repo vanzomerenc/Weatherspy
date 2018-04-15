@@ -30,12 +30,111 @@
 #include "gui/gui_layout.h"
 #include "gui/embedded_gui.h"
 
+#define READ_LINE_BUFSIZE (CHAR_MAX + 1)
+#define READ_LINE_LAST_POSITION CHAR_MAX
+
 struct weather_station_status status;
 struct bme280_dev sensor_atmospheric;
 
 // This will be used to store time data received from the web
 struct rtc_time received_time;
 bool received_time_valid = false;
+struct uart_channel wifi_uart;
+int time_set = 0;
+char receive_buff[READ_LINE_BUFSIZE] = {'\0'};
+
+// Returns 1 if expected found
+int receive(char* expected)
+{
+    delay_ms(50);
+    char* ptr = NULL;
+    do
+    {
+        ptr = fgets(receive_buff, READ_LINE_BUFSIZE, wifi_uart.rx);
+        if(NULL != ptr)
+        {
+            puts(receive_buff);
+        }
+        if(strstr(receive_buff, expected))
+        {
+            return 1;
+        }
+    } while(NULL != ptr);
+
+    return 0;
+}
+
+void send(char* command)
+{
+    fseek(wifi_uart.rx, 0, SEEK_END);
+    fputs(command, wifi_uart.tx);
+}
+
+// Returns 1 if expected found
+int send_receive(char* command, char* expected)
+{
+    send(command);
+    return receive(expected);
+}
+
+void set_time_nist()
+{
+    char date[10] = {'\0'};
+    char time[10] = {'\0'};
+    int month = 0;
+    int day = 0;
+    int year = 0;
+    int hour = 0;
+    int min = 0;
+    int sec = 0;
+
+    send("AT\r\n");
+    while(!receive("OK"));
+    receive_buff[0] = '\0';
+
+    send("AT+CWMODE=3\r\n");
+    while(!receive("OK"));
+    receive_buff[0] = '\0';
+
+    send("AT+CWJAP=\"Samdroid\",\"859e21178c35\"\r\n");
+    delay_ms(5000);
+    while(!receive("OK"));
+    receive_buff[0] = '\0';
+
+    send("AT+CIPSTART=\"TCP\",\"time.nist.gov\",13\r\n");
+    delay_ms(5000);
+    while(!receive("UTC(NIST)"));
+    char* token = strtok(receive_buff, " ");
+    while(token != NULL)
+    {
+        if(strstr(token, "-"))
+        {
+            strcpy(date, token);
+            sscanf(date, "%d-%d-%d", &day, &month, &year);
+            year += 2000;
+        }
+        if(strstr(token, ":"))
+        {
+            strcpy(time, token);
+            sscanf(time, "%d:%d:%d", &hour, &min, &sec);
+        }
+        token = strtok(NULL, " ");
+    }
+    receive_buff[0] = '\0';
+
+    while(!receive("CLOSED"));
+    receive_buff[0] = '\0';
+
+    received_time.date = day;
+    received_time.hour = hour;
+    received_time.min = min;
+    received_time.sec = sec;
+    received_time.month = month;
+    received_time.year = year;
+    received_time_valid = true;
+
+    time_set = 1;
+}
 
 void init_station_module()
 {
@@ -63,6 +162,8 @@ void init_station_module()
                  .year = 2018
              }
     };
+
+    show_colon = 0;
 
     ST7735_FillScreen(0);
 }
