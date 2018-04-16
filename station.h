@@ -77,6 +77,23 @@ int send_receive(char* command, char* expected)
     return receive(expected);
 }
 
+void send_sensor_data()
+{
+    char post_sensor_data[500] = {'\0'};
+    char request_post[50] = {'\0'};
+    send("AT+CIPSTART=\"TCP\",\"api.pushingbox.com\",80\r\n");
+    delay_ms(3000);
+    sprintf(post_sensor_data,"GET /pushingbox?devid=v24CBC064ECA935A&humidityData=%.1f&tempData=%.1f&"
+     "pressData=%.2f&lightData=77 HTTP/1.1\r\nHost: api.pushingbox.com\r\n"
+     "User-Agent: ESP8266/1.0\r\nConnection: close\r\n\r\n"
+     ,status.indoor_humidity,status.indoor_temperature,status.pressure);
+    sprintf(request_post, "AT+CIPSEND=%d\r\n", strlen(post_sensor_data));
+    send(request_post);
+    delay_ms(500);
+    send(post_sensor_data);
+    delay_ms(2000);
+}
+
 void set_time_nist()
 {
     char date[10] = {'\0'};
@@ -110,7 +127,7 @@ void set_time_nist()
         if(strstr(token, "-"))
         {
             strcpy(date, token);
-            sscanf(date, "%d-%d-%d", &day, &month, &year);
+            sscanf(date, "%d-%d-%d", &year, &month, &day);
             year += 2000;
         }
         if(strstr(token, ":"))
@@ -191,6 +208,15 @@ void run_station_module()
             rtc_settime(&received_time);
         }
         received_time_valid = false;
+    }
+    if(rtc_minute_passed)
+    {
+        rtc_minute_passed = false;
+        // only post on even minutes (every 2 min)
+        if(status.time.min % 2 == 0)
+        {
+            send_sensor_data();
+        }
     }
 }
 #endif /* STATION_H_ */
