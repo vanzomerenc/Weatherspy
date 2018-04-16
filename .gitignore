@@ -4,5 +4,6 @@ Release/
 .config/
 .launches/
 *.ccxml
+__pycache__/
 
 targetConfigs/

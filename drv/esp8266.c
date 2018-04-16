@@ -16,6 +16,8 @@
 
 #include <drv/timing.h>
 
+#include <generated/status.h>
+
 
 
 enum at_interface_state
@@ -47,9 +49,8 @@ AtInterface at_init(FILE *tx, FILE *rx)
     struct _at_interface *iface = malloc(sizeof(struct _at_interface));
     iface->tx = tx;
     iface->rx = rx;
-    iface->timeout = 1;
-    fputs("ATE0\r\n", iface->tx);
-    fseek(rx, 0, SEEK_END);
+    at_set_response_timeout(iface, 10);
+    at_set_echo(iface, false);
     return iface;
 }
 
@@ -65,18 +66,20 @@ void at_set_response_timeout(AtInterface iface, int ms)
 
 
 
-int _at_get_response(AtInterface iface, char *response, int n)
+static int _at_get_response(AtInterface iface, char *response, int n, bool quiet)
 {
     int64_t start = now();
     while(start + iface->timeout >= now())
     {
         if(fgets(response, n, iface->rx) && strcmp(response, "\r\n") != 0)
         {
+            if(!quiet) printf("Received: %s\r\n", response);
             return 0;
         }
         else if(ferror(iface->rx))
         {
             fseek(iface->rx, 0, SEEK_END);
+            printf("Stream error... giving up\r\n");
             return AT_STREAM_ERROR;
         }
         else
@@ -85,20 +88,174 @@ int _at_get_response(AtInterface iface, char *response, int n)
             PCM_gotoLPM0();
         }
     }
+    if(!quiet) printf("Timeout reached... giving up\r\n");
     return AT_TIMEOUT_FAIL;
 }
 
-enum at_status at_check_alive(AtInterface iface)
+static enum at_status _at_check_ok(AtInterface iface)
 {
-    fputs("AT\r\n", iface->tx);
     char response[256] = {0};
     int err = 0;
     do
     {
-        err = _at_get_response(iface, response, 256);
+        err = _at_get_response(iface, response, 256, false);
         if(strstr(response, "OK")) { return AT_OK; }
         if(strstr(response, "ERROR")) { return AT_INVALID_COMMAND; }
     }
     while(!err);
+    return (enum at_status) err;
+}
+
+
+
+enum at_status at_check_alive(AtInterface iface)
+{
+    printf("Checking that AT interface is alive...\r\n");
+    fputs("AT\r\n", iface->tx);
+    return _at_check_ok(iface);
+}
+
+
+
+enum at_status at_set_echo(AtInterface iface, bool enabled)
+{
+    if(enabled)
+    {
+        printf("AT echo on\r\n");
+        fputs("ATE1\r\n", iface->tx);
+    }
+    else
+    {
+        printf("AT echo off\r\n");
+        fputs("ATE0\r\n", iface->tx);
+    }
+    fseek(iface->rx, 0, SEEK_END);
+    return AT_OK;
+}
+
+
+
+enum at_status esp8266_set_wifi_mode(AtInterface a, enum esp8266_wifi_mode mode)
+{
+    printf("Setting WiFi mode\r\n");
+    fprintf(a->tx, "AT+CWMODE_CUR=%d\r\n", mode);
+    return _at_check_ok(a);
+}
+
+
+
+enum at_status esp8266_set_hosted_ap(AtInterface a, struct wifi_ap ap, int32_t timeout)
+{
+    printf("Setting up AP\r\n");
+    int32_t old_timeout = a->timeout;
+    a->timeout = timeout;
+    fprintf(a->tx, "AT+CWSAP_CUR=\"%s\",\"%s\",%d,3\r\n", ap.ssid, ap.passphrase, ap.channel);
+    enum at_status err = _at_check_ok(a);
+    a->timeout = old_timeout;
     return err;
+}
+
+
+
+enum at_status esp8266_server_start(AtInterface a, int32_t timeout)
+{
+    int32_t old_timeout = a->timeout;
+    a->timeout = timeout;
+
+    printf("Multiplexing\r\n");
+    fputs("AT+CIPMUX=1\r\n", a->tx);
+    enum at_status err = _at_check_ok(a);
+
+    printf("Starting server\r\n");
+    fputs("AT+CIPSERVER=1,80\r\n", a->tx);
+    enum at_status err2 = _at_check_ok(a);
+    a->timeout = old_timeout;
+
+    if(err != AT_OK) {return err;}
+    if(err2 != AT_OK) {return err2;}
+    return AT_OK;
+}
+
+
+
+static enum at_status _esp8266_check_send_ok(AtInterface a)
+{
+    char response[256] = {0};
+    int err = 0;
+    do
+    {
+        delay_ms(100);
+        err = _at_get_response(a, response, 256, false);
+        if(strstr(response, "SEND OK")) { return AT_OK; }
+        if(strstr(response, "SEND ERROR")) { return AT_INVALID_COMMAND; }
+    }
+    while(!err);
+    return (enum at_status)err;
+}
+
+static enum at_status _esp8266_serve_page(AtInterface a, int connection, char const *page)
+{
+    printf("Starting serve page\r\n");
+    fprintf(a->tx, "AT+CIPSEND=%d,%d\r\n", connection, strlen(page));
+    enum at_status err = _at_check_ok(a);
+
+    if(err == AT_OK)
+    {
+        printf("Sending data\r\n");
+        fputs(page, a->tx);
+        err = _esp8266_check_send_ok(a);
+    }
+
+    printf("Closing connection\r\n");
+    fprintf(a->tx, "AT+CIPCLOSE=%d\r\n", connection);
+    enum at_status err2 = _at_check_ok(a);
+
+    if(err != AT_OK) {return err;}
+    if(err2 != AT_OK) {return err2;}
+    return AT_OK;
+}
+
+void esp8266_server_periodic(AtInterface a, PageGen gen, PageState state)
+{
+    bool received_request = false;
+    char line[256];
+
+    int connection;
+    int message_len;
+    char message_type[32];
+    char message_first_arg[256];
+    int at_err = 0;
+    while(at_err == 0)
+    {
+        at_err = _at_get_response(a, line, 256, true);
+        int c = sscanf(line, " +IPD,%d,%d:%s %s", &connection, &message_len, &message_type[0], &message_first_arg[0]);
+        if(c == 4)
+        {
+            printf("+++Received a request!+++\r\n");
+            received_request = true;
+            break;
+        }
+    }
+    if(at_err == AT_STREAM_ERROR)
+    {
+        fseek(a->rx, 0, SEEK_END);
+        clearerr(a->rx);
+    }
+    if(!received_request) {return;}
+    while(_at_get_response(a, line, 256, false) == 0)
+    {
+        // eat the rest of the request, we don't care
+    }
+
+    if(strcmp(message_first_arg, "/") == 0)
+    {
+        char page[1024];
+        gen(state, page, 1024);
+
+        _esp8266_serve_page(a, connection, page);
+    }
+    else
+    {
+        _esp8266_serve_page(a, connection, "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
+    }
 }

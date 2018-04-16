@@ -85,5 +85,11 @@ enum at_status esp8266_disconnect_from_ap(AtInterface a);
 enum at_status esp8266_set_hostname(AtInterface a);
 
 enum at_status esp8266_get_hosted_ap(AtInterface a, struct wifi_ap *resp_ap);
-enum at_status esp8266_set_hosted_ap(AtInterface a, struct wifi_ap ap);
+enum at_status esp8266_set_hosted_ap(AtInterface a, struct wifi_ap ap, int32_t timeout);
 enum at_status esp8266_get_hosted_addr(AtInterface a, uint32_t *addr);
+
+
+typedef int(*PageGen)(void *, char *, int);
+typedef void *PageState;
+enum at_status esp8266_server_start(AtInterface a, int32_t timeout);
+void esp8266_server_periodic(AtInterface a, PageGen gen, PageState state);

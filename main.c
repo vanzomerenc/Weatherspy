@@ -64,6 +64,8 @@
 #include <drv/timing.h>
 #include <drv/esp8266.h>
 
+#include <generated/status.h>
+
 int main(void)
 {
     /* Stop Watchdog  */
@@ -99,11 +101,24 @@ int main(void)
     AtInterface wifi = at_init(wifi_uart.tx, wifi_uart.rx);
 
     int err = at_check_alive(wifi);
+    err = esp8266_set_wifi_mode(wifi, WIFI_MODE_SOFT_AP_AND_STATION);
+    err = esp8266_set_hosted_ap(
+            wifi,
+            (struct wifi_ap) {
+                .ssid="Your Advertisement Here",
+                .passphrase="sendmoneyplease",
+                .channel=6},
+            1000);
 
-    printf("%d", err);
+    err = esp8266_server_start(wifi, 1000);
+
+    struct webpage_status status = {0};
+
+
 
     while(1)
     {
+        esp8266_server_periodic(wifi, &print_webpage_status, &status);
         PCM_gotoLPM0();
     }
 }

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<style>
+body
+{
+    background-color: #000000;
+    color: #60D0FF;
+    margin: auto;
+    width: 50%;
+    padding: 10px;
+
+    position: relative;
+    top: 50%;
+    transform: translateY(100%);
+
+    text-align: center;
+    font-family: sans-serif;
+}
+h1
+{
+}
+</style>
+</head>
+<body>
+<h1>
+    Weather Status
+</h1>
+<p>
+    ${year:int:04d}-${month:int:02d}-${day:int:02d}
+    ${hour:int:02d}:${minute:int:02d}:${second:int:02d}
+</p>
+<p>
+    Current temperature: ${temperature:float:.2f} degrees
+</p>
+<p>
+    Current humidity: ${humidity:float:.2f}%
+</p>
+<p>
+    Barometric pressure: ${pressure:float:.2f} mmHg
+</p>
+</body>
+</html>
