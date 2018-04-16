@@ -43,7 +43,7 @@ int draw_weather_station_ui(struct weather_station_status status)
     {
         GUI_PRINT_FORMATTED(TIME_TEXT_POS, "%02d %02d", status.time.hour, status.time.min);
     }
-    GUI_PRINT_FORMATTED(DATE_TEXT_POS, "%02d/%02d", status.time.month, status.time.date);
+    GUI_PRINT_FORMATTED(DATE_TEXT_POS, "%02d/%02d/%04d", status.time.month, status.time.date, status.time.year);
     gui_print(OUTSIDE_HEADER_TEXT_POS, "OUTSIDE");
     gui_print(INSIDE_HEADER_TEXT_POS, "INSIDE");
 

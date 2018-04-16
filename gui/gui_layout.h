@@ -27,8 +27,8 @@
 #define HUMIDITY_ROW (TEMPERATURE_ROW + 2)
 #define BAROMETER_ROW (HUMIDITY_ROW + 3)
 
-#define TIME_TEXT_POS                (struct text_placement) {1, 0, 2}
-#define DATE_TEXT_POS                (struct text_placement) {15, 0, 1}
+#define TIME_TEXT_POS                (struct text_placement) {0, 0, 2}
+#define DATE_TEXT_POS                (struct text_placement) {11, 0, 1}
 
 #define OUTSIDE_HEADER_TEXT_POS      (struct text_placement) {OUTSIDE_HEADER_COL, HEADER_ROW, 1}
 #define INSIDE_HEADER_TEXT_POS       (struct text_placement) {INSIDE_HEADER_COL, HEADER_ROW, 1}
