@@ -171,7 +171,12 @@ void set_time_nist()
 
     send("AT+CIPSTART=\"TCP\",\"time.nist.gov\",13\r\n");
     delay_ms(5000);
-    while(!receive("UTC(NIST)"));
+    while(!receive("UTC(NIST)"))
+    {
+        send("AT+CIPSTART=\"TCP\",\"time.nist.gov\",13\r\n");
+        delay_ms(5000);
+    };
+
     char* token = strtok(receive_buff, " ");
     while(token != NULL)
     {
@@ -268,6 +273,7 @@ void run_station_module()
         }
         received_time_valid = false;
     }
+
     if(rtc_minute_passed)
     {
         rtc_minute_passed = false;
