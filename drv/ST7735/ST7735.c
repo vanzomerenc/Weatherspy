@@ -1301,17 +1301,6 @@ void ST7735_SetTextColor(uint16_t color){
 //  return 1;
 //}
 
-// No input from Nokia, always return data.
-int fgetc (FILE *f){
-  return 0;
-}
-
-// Function called when file error occurs.
-int ferror(FILE *f){
-  /* Your implementation of ferror */
-  return EOF;
-}
-
 // Abstraction of general output device
 // Volume 2 section 3.4.5
 
