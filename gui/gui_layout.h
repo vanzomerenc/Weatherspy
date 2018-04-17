@@ -32,6 +32,7 @@
 
 #define OUTSIDE_HEADER_TEXT_POS      (struct text_placement) {OUTSIDE_HEADER_COL, HEADER_ROW, 1}
 #define INSIDE_HEADER_TEXT_POS       (struct text_placement) {INSIDE_HEADER_COL, HEADER_ROW, 1}
+#define LOCAL_CONDITION_TEXT_POS     (struct text_placement) {0, HEADER_ROW - 2, 2}
 
 #define OUTSIDE_TEMPERATURE_LABEL_POS (struct text_placement) {OUTSIDE_LABEL_COL, TEMPERATURE_ROW, 1}
 #define OUTSIDE_TEMPERATURE_VALUE_POS (struct text_placement) {OUTSIDE_VALUE_COL, TEMPERATURE_ROW, 2}

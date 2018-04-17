@@ -44,24 +44,22 @@ int draw_weather_station_ui(struct weather_station_status status)
         GUI_PRINT_FORMATTED(TIME_TEXT_POS, "%02d %02d", status.time.hour, status.time.min);
     }
     GUI_PRINT_FORMATTED(DATE_TEXT_POS, "%02d/%02d/%04d", status.time.month, status.time.date, status.time.year);
+
+    gui_print(LOCAL_CONDITION_TEXT_POS, status.local_condition);
     gui_print(OUTSIDE_HEADER_TEXT_POS, "OUTSIDE");
     gui_print(INSIDE_HEADER_TEXT_POS, "INSIDE");
 
-    /**
     GUI_PRINT_FORMATTED(OUTSIDE_TEMPERATURE_VALUE_POS, "%2.f", status.outdoor_temperature);
     gui_print(OUTSIDE_TEMPERATURE_LABEL_POS, "\xF7""F");
     draw_trend(OUTSIDE_TEMPERATURE_TREND_POS, status.outdoor_temperature, &short_run_avg.outdoor_temperature, &long_run_avg.outdoor_temperature, 0.5f);
-    */
 
     GUI_PRINT_FORMATTED(INSIDE_TEMPERATURE_VALUE_POS, "%2.f", status.indoor_temperature);
     gui_print(INSIDE_TEMPERATURE_LABEL_POS, "\xF7""F");
     draw_trend(INSIDE_TEMPERATURE_TREND_POS, status.indoor_temperature, &short_run_avg.indoor_temperature, &long_run_avg.indoor_temperature, 0.5f);
 
-    /**
     GUI_PRINT_FORMATTED(OUTSIDE_HUMIDITY_VALUE_POS, "%2.f", status.outdoor_humidity);
     gui_print(OUTSIDE_HUMIDITY_LABEL_POS, "%");
     draw_trend(OUTSIDE_HUMIDITY_TREND_POS, status.outdoor_humidity, &short_run_avg.outdoor_humidity, &long_run_avg.outdoor_humidity, 0.5f);
-    */
 
     GUI_PRINT_FORMATTED(INSIDE_HUMIDITY_VALUE_POS, "%2.f", status.indoor_humidity);
     gui_print(INSIDE_HUMIDITY_LABEL_POS, "%");

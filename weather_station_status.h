@@ -23,6 +23,7 @@ enum lighting_condition
 struct weather_station_status
 {
     enum lighting_condition lighting;
+    char local_condition[20];
     float outdoor_temperature;
     float indoor_temperature;
     float outdoor_humidity;

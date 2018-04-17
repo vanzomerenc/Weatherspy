@@ -61,6 +61,7 @@ int receive(char* expected)
         }
     } while(NULL != ptr);
 
+    clearerr(wifi_uart.rx);
     return 0;
 }
 
@@ -92,6 +93,52 @@ void send_sensor_data()
     delay_ms(500);
     send(post_sensor_data);
     delay_ms(2000);
+}
+
+void get_weather_data()
+{
+    char weather_str[100] = {'\0'};
+    char temp_str[100] = {'\0'};
+    char humid_str[100] = {'\0'};
+
+    char curr_weather[100] = {'\0'};
+    char Fetch[500] = {'\0'};
+
+    sprintf(Fetch,"GET http://api.wunderground.com/api/3316893238ef1dd2/conditions/q/MI/Grand_Rapids.json HTTP/1.1"
+            "\r\nHost: api.wunderground.com\r\nConnection: close\r\n\r\n");
+
+    /**
+    sprintf(Fetch, "GET http://api.openweathermap.org/data/2.5/weather?id=4994358&APPID=4e9e516ec3bcee55cc815a14912710ce HTTP/1.1"
+            "\r\nHost:api.openweathermap.org\r\nConnection:close\r\n\r\n");
+*/
+    send("AT+CIPSTART=\"TCP\",\"api.wunderground.com\",80\r\n");
+    //send("AT+CIPSTART=\"TCP\",\"api.openweathermap.org\",80\r\n");
+    delay_ms(1000);
+    while(!receive("OK"));
+    receive_buff[0] = '\0';
+    char ESP8266String[100] = {'\0'};
+    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", strlen(Fetch) - 1);
+    send(ESP8266String);
+    delay_ms(5);
+    while(!receive("OK"));
+    receive_buff[0] = '\0';
+    send(Fetch);
+    delay_ms(2000);
+    while(!receive("Recv"));
+    while(!receive("SEND OK"));
+    receive_buff[0] = '\0';
+    while(!receive("\"weather\""));
+    strcpy(weather_str, receive_buff);
+    while(!receive("\"temp_f\""));
+    strcpy(temp_str, receive_buff);
+    while(!receive("\"relative_humidity\""));
+    strcpy(humid_str, receive_buff);
+
+    sscanf(weather_str, "\"weather\":\"%s\",", &curr_weather);
+    sscanf(temp_str, "\temp_f\":%f,", &status.outdoor_temperature);
+    sscanf(humid_str, "\relative_humidity\":\"%d", &status.outdoor_humidity);
+
+    strcpy(status.local_condition, curr_weather);
 }
 
 void set_time_nist()
@@ -165,6 +212,7 @@ void init_station_module()
 
     status = (struct weather_station_status) {
          .lighting = lighting_dark,
+         .local_condition = {'\0'},
          .outdoor_temperature = 0.0f,
          .indoor_temperature = 0.0f,
          .outdoor_humidity = 0.0f,
@@ -217,6 +265,14 @@ void run_station_module()
         {
             send_sensor_data();
         }
+
+        //get_weather_data();
+        /**
+        if(status.time.min % 3 == 0)
+        {
+
+        }
+        */
     }
 }
 #endif /* STATION_H_ */
