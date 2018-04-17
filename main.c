@@ -64,6 +64,7 @@ int main(void)
         }
         rtc_second_passed = false;
         MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
+        MAP_ADC14_toggleConversionTrigger();
         show_colon ^= 1;
     }
 }

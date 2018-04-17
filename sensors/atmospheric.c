@@ -37,8 +37,6 @@ int sensor_atmospheric_init(struct bme280_dev *out_dev)
     return 0;
 }
 
-
-
 int sensor_atmospheric_read(struct bme280_dev *dev, struct sensor_atmospheric_result *out_result)
 {
 

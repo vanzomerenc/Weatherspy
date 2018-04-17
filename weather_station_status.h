@@ -29,6 +29,8 @@ struct weather_station_status
     float outdoor_humidity;
     float indoor_humidity;
     float pressure;
+    float out_voltage;
+    float out_current;
     struct rtc_time time;
 };
 

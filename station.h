@@ -43,6 +43,13 @@ struct uart_channel wifi_uart;
 int time_set = 0;
 char receive_buff[READ_LINE_BUFSIZE] = {'\0'};
 
+/* Statics */
+static volatile uint16_t curADCResultVolt;
+static volatile double normalizedADCVolt;
+static volatile uint16_t curADCResultDiff;
+static volatile double signedResultDiff;
+static volatile double adcResult0;
+
 // Returns 1 if expected found
 int receive(char* expected)
 {
@@ -85,9 +92,9 @@ void send_sensor_data()
     send("AT+CIPSTART=\"TCP\",\"api.pushingbox.com\",80\r\n");
     delay_ms(3000);
     sprintf(post_sensor_data,"GET /pushingbox?devid=v24CBC064ECA935A&humidityData=%.1f&tempData=%.1f&"
-     "pressData=%.2f&lightData=77 HTTP/1.1\r\nHost: api.pushingbox.com\r\n"
+     "pressData=%.2f&voltData=%.2f&currData=%.2f HTTP/1.1\r\nHost: api.pushingbox.com\r\n"
      "User-Agent: ESP8266/1.0\r\nConnection: close\r\n\r\n"
-     ,status.indoor_humidity,status.indoor_temperature,status.pressure);
+     ,status.indoor_humidity,status.indoor_temperature,status.pressure,status.out_voltage,status.out_current);
     sprintf(request_post, "AT+CIPSEND=%d\r\n", strlen(post_sensor_data));
     send(request_post);
     delay_ms(500);
@@ -216,6 +223,53 @@ void set_time_nist()
     time_set = 1;
 }
 
+void power_monitor_init()
+{
+    /* Initializing Variables */
+    curADCResultVolt = 0;
+    normalizedADCVolt = 0;
+    curADCResultDiff = 0;
+    signedResultDiff = 0;
+    adcResult0 = 0;
+
+    /* Enabling the FPU for floating point operation */
+    MAP_FPU_enableModule();
+    MAP_FPU_enableLazyStacking();
+
+    /* Initializing ADC (MCLK/1/4) */
+    MAP_ADC14_enableModule();
+    MAP_ADC14_initModule(ADC_CLOCKSOURCE_MCLK, ADC_PREDIVIDER_4, ADC_DIVIDER_1,
+            0);
+
+    /* Configuring GPIOs (4.7 A6) */
+   MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN7,
+   GPIO_TERTIARY_MODULE_FUNCTION);
+
+   /* Setting up GPIO pins as analog inputs for A0(5.5) and A1(5.4)*/
+   MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P5, GPIO_PIN5 | GPIO_PIN4, GPIO_TERTIARY_MODULE_FUNCTION);
+
+
+   /* Configuring ADC Memory */
+   MAP_ADC14_configureMultiSequenceMode(ADC_MEM0, ADC_MEM6, false);
+   /* ADC_MEM1 A6 Single Ended */
+   MAP_ADC14_configureConversionMemory(ADC_MEM6, ADC_VREFPOS_AVCC_VREFNEG_VSS,
+                                       ADC_INPUT_A6, false);
+   /* Configuring ADC Memory (ADC_MEM0 A0/A1 Differential) */
+   MAP_ADC14_configureConversionMemory(ADC_MEM0, ADC_VREFPOS_AVCC_VREFNEG_VSS,
+                                       ADC_INPUT_A0, true);
+
+   /* Configuring Sample Timer */
+   MAP_ADC14_enableSampleTimer(ADC_AUTOMATIC_ITERATION);
+
+   /* Enabling/Toggling Conversion */
+   MAP_ADC14_enableConversion();
+   MAP_ADC14_toggleConversionTrigger();
+
+   /* Enabling interrupts */
+   MAP_ADC14_enableInterrupt(ADC_INT6);
+   MAP_Interrupt_enableInterrupt(INT_ADC14);
+}
+
 void init_station_module()
 {
     //struct adc_channel_config adc_channels[1];
@@ -225,6 +279,7 @@ void init_station_module()
     ST7735_InitR(INITR_REDTAB); // initialize LCD controller IC
 
     sensor_atmospheric_init(&sensor_atmospheric);
+    power_monitor_init();
 
     status = (struct weather_station_status) {
          .lighting = lighting_dark,
@@ -234,6 +289,8 @@ void init_station_module()
          .outdoor_humidity = 0.0f,
          .indoor_humidity = 0.0f,
          .pressure = 0.0f,
+         .out_voltage = 0.0f,
+         .out_current = 0.0f,
          .time = (struct rtc_time) {
                  .sec = 0,
                  .min = 0,
@@ -291,6 +348,27 @@ void run_station_module()
 
         }
         */
+    }
+}
+
+/* ADC Interrupt Handler. This handler is called whenever there is a conversion
+ * that is finished for ADC_MEM6
+ */
+void ADC14_IRQHandler(void)
+{
+    uint64_t statusADC = MAP_ADC14_getEnabledInterruptStatus();
+    MAP_ADC14_clearInterruptFlag(statusADC);
+
+    if (ADC_INT6 & statusADC)
+    {
+        curADCResultVolt = MAP_ADC14_getResult(ADC_MEM6);
+        normalizedADCVolt = (curADCResultVolt * 3.3) / 16384;
+        status.out_voltage = normalizedADCVolt;
+
+        curADCResultDiff = MAP_ADC14_getResult(ADC_MEM0);
+        signedResultDiff = (int16_t)curADCResultDiff - 8192;
+        adcResult0 = ((signedResultDiff * 3.3) / 8192.0) * 1000;
+        status.out_current = adcResult0;
     }
 }
 #endif /* STATION_H_ */
