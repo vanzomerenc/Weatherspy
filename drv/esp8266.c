@@ -78,6 +78,7 @@ static int _at_get_response(AtInterface iface, char *response, int n, bool quiet
         }
         else if(ferror(iface->rx))
         {
+            clearerr(iface->rx);
             fseek(iface->rx, 0, SEEK_END);
             printf("Stream error... giving up\r\n");
             return AT_STREAM_ERROR;
@@ -101,6 +102,7 @@ static enum at_status _at_check_ok(AtInterface iface)
         err = _at_get_response(iface, response, 256, false);
         if(strstr(response, "OK")) { return AT_OK; }
         if(strstr(response, "ERROR")) { return AT_INVALID_COMMAND; }
+        if(strstr(response, "busy p...")) { return AT_BUSY; }
     }
     while(!err);
     return (enum at_status) err;
@@ -139,6 +141,40 @@ enum at_status esp8266_set_wifi_mode(AtInterface a, enum esp8266_wifi_mode mode)
 {
     printf("Setting WiFi mode\r\n");
     fprintf(a->tx, "AT+CWMODE_CUR=%d\r\n", mode);
+    return _at_check_ok(a);
+}
+
+
+
+enum at_status esp8266_connect_to_ap(AtInterface a, struct wifi_ap ap, enum esp8266_wifi_error *resp_error, int32_t timeout)
+{
+    printf("Connecting to external AP\r\n");
+    int32_t old_timeout = a->timeout;
+    a->timeout = timeout;
+    fprintf(a->tx, "AT+CWJAP_CUR=\"%s\",\"%s\"\r\n", ap.ssid, ap.passphrase);
+
+    char response[256] = {0};
+    int err = 0;
+    do
+    {
+        err = _at_get_response(a, response, 256, false);
+        if(strstr(response, "OK")) { err = AT_OK; break; }
+        if(strstr(response, "ERROR")) { err = AT_INVALID_COMMAND; }
+        if(sscanf(response, "+CWJAP_CUR:%d", &resp_error)) { err = AT_FAIL; }
+        if(strstr(response, "FAIL")) { err = AT_FAIL; }
+        if(strstr(response, "busy p...")) { err = AT_BUSY; }
+    }
+    while(!err);
+    a->timeout = old_timeout;
+    return (enum at_status) err;
+}
+
+
+
+enum at_status esp8266_disconnect_from_ap(AtInterface a)
+{
+    printf("Disconnecting from external AP\r\n");
+    fprintf(a->tx, "AT+CWQAP\r\n");
     return _at_check_ok(a);
 }
 

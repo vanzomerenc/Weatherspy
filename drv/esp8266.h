@@ -17,7 +17,8 @@ enum at_status
     AT_TIMEOUT_FAIL = -2,
     AT_INVALID_COMMAND = -3,
     AT_UNEXPECTED_RESPONSE = -4,
-    AT_STREAM_ERROR = -5
+    AT_STREAM_ERROR = -5,
+    AT_BUSY = -6
 };
 
 enum esp8266_wifi_mode
@@ -68,26 +69,12 @@ void at_set_response_timeout(AtInterface iface, int ms);
 enum at_status at_check_alive(AtInterface iface);
 enum at_status at_set_echo(AtInterface a, bool enabled);
 
-enum at_status at_arbitrary_command(AtInterface iface,
-                                    char const *command,
-                                    char *response, int response_buf_size);
-
-enum at_status esp8266_restart(AtInterface a);
-enum at_status esp8266_deep_sleep(AtInterface a, int sleep_ms, int *slept_for);
-enum at_status esp8266_factory_reset(AtInterface a);
-
-enum at_status esp8266_get_wifi_mode(AtInterface a, enum esp8266_wifi_mode *response);
 enum at_status esp8266_set_wifi_mode(AtInterface a, enum esp8266_wifi_mode mode);
 
-enum at_status esp8266_get_ap_connection(AtInterface a, struct wifi_ap *resp_ap, int *resp_rssi);
-enum at_status esp8266_connect_to_ap(AtInterface a, struct wifi_ap ap, enum esp8266_wifi_error *resp_error);
+enum at_status esp8266_connect_to_ap(AtInterface a, struct wifi_ap ap, enum esp8266_wifi_error *resp_error, int32_t timeout);
 enum at_status esp8266_disconnect_from_ap(AtInterface a);
-enum at_status esp8266_set_hostname(AtInterface a);
 
-enum at_status esp8266_get_hosted_ap(AtInterface a, struct wifi_ap *resp_ap);
 enum at_status esp8266_set_hosted_ap(AtInterface a, struct wifi_ap ap, int32_t timeout);
-enum at_status esp8266_get_hosted_addr(AtInterface a, uint32_t *addr);
-
 
 typedef int(*PageGen)(void *, char *, int);
 typedef void *PageState;
