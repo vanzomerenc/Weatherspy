@@ -6,6 +6,12 @@ body
 {
     background-color: #000000;
     color: #60D0FF;
+
+    text-align: center;
+    font-family: sans-serif;
+}
+.mainbody
+{
     margin: auto;
     width: 50%;
     padding: 10px;
@@ -13,18 +19,14 @@ body
     position: relative;
     top: 50%;
     transform: translateY(100%);
-
-    text-align: center;
-    font-family: sans-serif;
-}
-h1
-{
 }
 </style>
+<meta http-equiv="refresh" content="1" />
 </head>
 <body>
+<div class="mainbody">
 <h1>
-    Weather Status
+    Weather Station
 </h1>
 <p>
     ${year:int:04d}-${month:int:02d}-${day:int:02d}
@@ -39,5 +41,6 @@ h1
 <p>
     Barometric pressure: ${pressure:float:.2f} mmHg
 </p>
+</div>
 </body>
 </html>
