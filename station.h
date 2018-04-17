@@ -109,7 +109,7 @@ void set_time_nist()
 
     send("AT+CIPSTART=1,\"TCP\",\"time.nist.gov\",13\r\n");
     delay_ms(5000);
-    while(!receive("UTC(NIST)"));
+    if(!receive("UTC(NIST)")) {return;}
     char* token = strtok(receive_buff, " ");
     while(token != NULL)
     {
@@ -130,6 +130,13 @@ void set_time_nist()
 
     while(!receive("CLOSED"));
     receive_buff[0] = '\0';
+
+    hour -= 4;
+    if(hour < 0)
+    {
+        hour += 24;
+        day -= 1;
+    }
 
     received_time.date = day;
     received_time.hour = hour;
