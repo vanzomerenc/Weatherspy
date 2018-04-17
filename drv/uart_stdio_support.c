@@ -18,7 +18,7 @@
 #include <drv/line_buf.h>
 
 #define UART_NUM_CHANNELS 4
-#define UART_RECEIVE_BUFFER_SIZE BUFSIZ
+#define UART_RECEIVE_BUFFER_SIZE (BUFSIZ * 2)
 
 
 struct _uart_channel
