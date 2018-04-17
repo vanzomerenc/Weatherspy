@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include <drv/uart.h>
 #include <drv/uart_stdio_support.h>
@@ -96,6 +97,7 @@ void send_sensor_data()
 
 void set_time_nist()
 {
+    printf("Setting time");
     char date[10] = {'\0'};
     char time[10] = {'\0'};
     int month = 0;
@@ -105,20 +107,7 @@ void set_time_nist()
     int min = 0;
     int sec = 0;
 
-    send("AT\r\n");
-    while(!receive("OK"));
-    receive_buff[0] = '\0';
-
-    send("AT+CWMODE=3\r\n");
-    while(!receive("OK"));
-    receive_buff[0] = '\0';
-
-    send("AT+CWJAP=\"Samdroid\",\"859e21178c35\"\r\n");
-    delay_ms(5000);
-    while(!receive("OK"));
-    receive_buff[0] = '\0';
-
-    send("AT+CIPSTART=\"TCP\",\"time.nist.gov\",13\r\n");
+    send("AT+CIPSTART=1,\"TCP\",\"time.nist.gov\",13\r\n");
     delay_ms(5000);
     while(!receive("UTC(NIST)"));
     char* token = strtok(receive_buff, " ");
