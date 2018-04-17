@@ -104,8 +104,12 @@ void get_weather_data()
     char curr_weather[100] = {'\0'};
     char Fetch[500] = {'\0'};
 
-    sprintf(Fetch,"GET http://api.wunderground.com/api/3316893238ef1dd2/conditions/q/MI/Grand_Rapids.json HTTP/1.1"
-            "\r\nHost: api.wunderground.com\r\nConnection: close\r\n\r\n");
+    sprintf(Fetch,"GET /api/3316893238ef1dd2/conditions/q/MI/Grand_Rapids.json HTTP/1.1\r\n"
+            "User-Agent: ESP8266/0.1\r\n"
+            "Accept: */*\r\n"
+            "Host: api.wunderground.com\r\n"
+            "Connection: close\r\n"
+            "\r\n");
 
     /**
     sprintf(Fetch, "GET http://api.openweathermap.org/data/2.5/weather?id=4994358&APPID=4e9e516ec3bcee55cc815a14912710ce HTTP/1.1"
@@ -117,13 +121,13 @@ void get_weather_data()
     while(!receive("OK"));
     receive_buff[0] = '\0';
     char ESP8266String[100] = {'\0'};
-    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", strlen(Fetch) - 1);
+    sprintf(ESP8266String, "AT+CIPSEND=%d\r\n", strlen(Fetch));
     send(ESP8266String);
-    delay_ms(5);
+    delay_ms(500);
     while(!receive("OK"));
     receive_buff[0] = '\0';
     send(Fetch);
-    delay_ms(2000);
+    delay_ms(6000);
     while(!receive("Recv"));
     while(!receive("SEND OK"));
     receive_buff[0] = '\0';
@@ -188,6 +192,13 @@ void set_time_nist()
 
     while(!receive("CLOSED"));
     receive_buff[0] = '\0';
+
+    hour -= 4;
+    if(hour < 0)
+    {
+        hour += 24;
+        day -= 1;
+    }
 
     received_time.date = day;
     received_time.hour = hour;
@@ -265,6 +276,7 @@ void run_station_module()
         {
             send_sensor_data();
         }
+
 
         //get_weather_data();
         /**
